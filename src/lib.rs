@@ -8,23 +8,23 @@ mod list {
     impl List {
         pub fn new() -> Self {
             List {
-                head: Link::Empty
+                head: None
             }
         }
 
         pub fn push(&mut self, element: i32) {
             let new_head = Box::new(Node {
                 element,
-                link: mem::replace(&mut self.head, Link::Empty),
+                link: mem::replace(&mut self.head, None),
             });
 
-            self.head = Link::More(new_head);
+            self.head = Some(new_head);
         }
 
         pub fn pop(&mut self) -> Option<i32> {
-            match mem::replace(&mut self.head, Link::Empty) {
-                Link::Empty => None,
-                Link::More(head_node) => {
+            match mem::replace(&mut self.head, None) {
+                None => None,
+                Some(head_node) => {
                     self.head = head_node.link;
                     Some(head_node.element)
                 }
@@ -34,18 +34,15 @@ mod list {
 
     impl Drop for List {
         fn drop(&mut self) {
-            let mut curr_link = mem::replace(&mut self.head, Link::Empty);
+            let mut curr_link = mem::replace(&mut self.head, None);
 
-            while let Link::More(mut boxed_node) = curr_link {
-                curr_link = mem::replace(&mut boxed_node.link, Link::Empty);
+            while let Some(mut boxed_node) = curr_link {
+                curr_link = mem::replace(&mut boxed_node.link, None);
             }
         }
     }
 
-    enum Link {
-        Empty,
-        More(Box<Node>),
-    }
+    type Link = Option<Box<Node>>;
 
     struct Node {
         element: i32,
