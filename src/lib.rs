@@ -20,13 +20,10 @@ mod list {
         }
 
         pub fn pop(&mut self) -> Option<i32> {
-            match self.head.take() {
-                None => None,
-                Some(head_node) => {
-                    self.head = head_node.link;
-                    Some(head_node.element)
-                }
-            }
+            self.head.take().map(|head_node| {
+                self.head = head_node.link;
+                head_node.element
+            })
         }
     }
 
