@@ -1,6 +1,4 @@
 mod list {
-    use std::mem;
-
     pub struct List {
         head: Link,
     }
@@ -15,14 +13,14 @@ mod list {
         pub fn push(&mut self, element: i32) {
             let new_head = Box::new(Node {
                 element,
-                link: mem::replace(&mut self.head, None),
+                link: self.head.take(),
             });
 
             self.head = Some(new_head);
         }
 
         pub fn pop(&mut self) -> Option<i32> {
-            match mem::replace(&mut self.head, None) {
+            match self.head.take() {
                 None => None,
                 Some(head_node) => {
                     self.head = head_node.link;
@@ -34,10 +32,10 @@ mod list {
 
     impl Drop for List {
         fn drop(&mut self) {
-            let mut curr_link = mem::replace(&mut self.head, None);
+            let mut curr_link = self.head.take();
 
             while let Some(mut boxed_node) = curr_link {
-                curr_link = mem::replace(&mut boxed_node.link, None);
+                curr_link = boxed_node.link.take();
             }
         }
     }
