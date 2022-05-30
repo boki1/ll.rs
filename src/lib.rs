@@ -1,16 +1,16 @@
 mod list {
-    pub struct List {
-        head: Link,
+    pub struct List<T> {
+        head: Link<T>,
     }
 
-    impl List {
+    impl<T> List<T> {
         pub fn new() -> Self {
             List {
                 head: None
             }
         }
 
-        pub fn push(&mut self, element: i32) {
+        pub fn push(&mut self, element: T) {
             let new_head = Box::new(Node {
                 element,
                 link: self.head.take(),
@@ -19,7 +19,7 @@ mod list {
             self.head = Some(new_head);
         }
 
-        pub fn pop(&mut self) -> Option<i32> {
+        pub fn pop(&mut self) -> Option<T> {
             self.head.take().map(|head_node| {
                 self.head = head_node.link;
                 head_node.element
@@ -27,7 +27,7 @@ mod list {
         }
     }
 
-    impl Drop for List {
+    impl<T> Drop for List<T> {
         fn drop(&mut self) {
             let mut curr_link = self.head.take();
 
@@ -37,11 +37,11 @@ mod list {
         }
     }
 
-    type Link = Option<Box<Node>>;
+    type Link<T> = Option<Box<Node<T>>>;
 
-    struct Node {
-        element: i32,
-        link: Link,
+    struct Node<T> {
+        element: T,
+        link: Link<T>,
     }
 }
 
@@ -84,5 +84,12 @@ mod tests {
         // Check exhaustion
         assert_eq!(list.pop(), Some(1));
         assert_eq!(list.pop(), None);
+    }
+
+    #[test]
+    fn generic() {
+        let mut list: List<f32> = List::new();
+        list.push(3.14);
+        assert_eq!(list.pop().unwrap(), 3.14);
     }
 }
