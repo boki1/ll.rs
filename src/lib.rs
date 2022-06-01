@@ -57,6 +57,11 @@ mod list {
     }
 
     /// An owning iterator over the entries of `List<T>`.
+    /// Out of https://doc.rust-lang.org/std/iter/index.html#implementing-iterator:
+    /// "Creating an iterator of your own involves two steps: creating a struct to hold the
+    /// iterator’s state, and then implementing Iterator for that struct. This is why there are so
+    /// many structs in this module: there is one for each iterator and iterator adapter."
+    /// It seems IntoIter is an idiomatic name for iterator adapter.
     pub struct IntoIter<T>(List<T>);
 
     impl<T> List<T> {
@@ -65,10 +70,39 @@ mod list {
         }
     }
 
+    /// There are three common methods which can create iterators from a collection:
+    ///     - iter(), which iterates over &T.
+    ///     - iter_mut(), which iterates over &mut T.
+    ///     - into_iter(), which iterates over T.
+
     impl<T> Iterator for IntoIter<T> {
         type Item = T;
         fn next(&mut self) -> Option<Self::Item> {
             self.0.pop()
+        }
+    }
+
+    pub struct Iter<'a, T> {
+        next: Option<&'a Node<T>>,
+    }
+
+    impl<T> List<T> {
+        pub fn iter(&self) -> Iter<T> {
+            Iter { next: self.head.as_deref() }
+        }
+    }
+
+    impl<'a, T> Iterator for Iter<'a, T> {
+        type Item = &'a T;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            self.next.map(|node| {
+                // Turbofish (::<>) usage here is an alterantive to using `.as_deref()`.
+                // This lets the compiler know that `&node` should have _deref coercion_ applied to
+                // so we don't need to manually apply all those *'s! (which would look like: &**node).
+                self.next = node.link.as_ref().map::<&Node<T>, _>(|node| &*node);
+                &node.element
+            })
         }
     }
 }
@@ -151,5 +185,18 @@ mod tests {
         assert_eq!(iter.next(), Some(2));
         assert_eq!(iter.next(), Some(1));
         assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn iter() {
+        let mut list = List::new();
+        list.push(1);
+        list.push(2);
+        list.push(3);
+        let mut iter = list.iter();
+
+        assert_eq!(iter.next(), Some(&3));
+        assert_eq!(iter.next(), Some(&2));
+        assert_eq!(iter.next(), Some(&1));
     }
 }
