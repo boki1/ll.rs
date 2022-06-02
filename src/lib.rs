@@ -1,11 +1,11 @@
 mod list {
-    use std::rc::Rc;
+    use std::sync::Arc;
 
     pub struct List<T> {
         head: Link<T>,
     }
 
-    type Link<T> = Option<Rc<Node<T>>>;
+    type Link<T> = Option<Arc<Node<T>>>;
 
     pub struct Node<T> {
         link: Link<T>,
@@ -25,7 +25,7 @@ mod list {
                 element,
             };
 
-            List { head: Some(Rc::new(node)) }
+            List { head: Some(Arc::new(node)) }
         }
 
         /// Takes a list with all nodes which follow the head.
@@ -63,12 +63,12 @@ mod list {
         fn drop(&mut self) {
             let mut head = self.head.take();
             while let Some(node) = head {
-                // Rc::try_unwrap() is OK because we know that we're the last list that knows
+                // Arc::try_unwrap() is OK because we know that we're the last list that knows
                 // about this node, so it is actually fine to move the Node out of the Rc.
-                if let Ok(mut node) = Rc::try_unwrap(node) {
+                if let Ok(mut node) = Arc::try_unwrap(node) {
                     head = node.link.take();
                 } else {
-                    break
+                    break;
                 }
             }
         }
@@ -77,6 +77,7 @@ mod list {
 
 #[cfg(test)]
 mod tests {
+    use std::thread;
     use crate::list::List;
 
     #[test]
@@ -109,5 +110,23 @@ mod tests {
         assert_eq!(iter.next(), Some(&3));
         assert_eq!(iter.next(), Some(&2));
         assert_eq!(iter.next(), Some(&1));
+    }
+
+    #[test]
+    fn thread_safe() {
+        const NUM_THREADS: usize = 10;
+
+        let mut children = vec![];
+
+        for i in 0..NUM_THREADS {
+            children.push(thread::spawn(move || {
+
+            }));
+        }
+
+        for child in children {
+            // Wait for the thread to finish. Returns a result.
+            let _ = child.join();
+        }
     }
 }
