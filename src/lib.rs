@@ -37,6 +37,27 @@ mod list {
             self.head.as_ref().map(|node| &node.element)
         }
     }
+
+    pub struct Iter<'a, T> {
+        link: Option<&'a Node<T>>,
+    }
+
+    impl<T> List<T> {
+        pub fn iter(&self) -> Iter<'_, T> {
+            Iter { link: self.head.as_deref() }
+        }
+    }
+
+    impl<'a, T> Iterator for Iter<'a, T> {
+        type Item = &'a T;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            self.link.map(|node| {
+                self.link = node.link.as_deref();
+                &node.element
+            })
+        }
+    }
 }
 
 #[cfg(test)]
@@ -63,5 +84,15 @@ mod tests {
         // Make sure empty tail works
         let list = list.tail();
         assert_eq!(list.head(), None);
+    }
+
+    #[test]
+    fn iter() {
+        let list = List::new().prepend(1).prepend(2).prepend(3);
+
+        let mut iter = list.iter();
+        assert_eq!(iter.next(), Some(&3));
+        assert_eq!(iter.next(), Some(&2));
+        assert_eq!(iter.next(), Some(&1));
     }
 }
