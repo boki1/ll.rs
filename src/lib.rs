@@ -58,6 +58,21 @@ mod list {
             })
         }
     }
+
+    impl<T> Drop for List<T> {
+        fn drop(&mut self) {
+            let mut head = self.head.take();
+            while let Some(node) = head {
+                // Rc::try_unwrap() is OK because we know that we're the last list that knows
+                // about this node, so it is actually fine to move the Node out of the Rc.
+                if let Ok(mut node) = Rc::try_unwrap(node) {
+                    head = node.link.take();
+                } else {
+                    break
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]
