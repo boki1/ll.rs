@@ -6,7 +6,8 @@ mod list {
         tail: *mut Node<T>,
     }
 
-    type Link<T> = Option<Box<Node<T>>>;
+    // Do not mix safe and unsafe primitives in order to escape from UB.
+    type Link<T> = *mut Node<T>;
 
     struct Node<T> {
         next: Link<T>,
@@ -16,7 +17,7 @@ mod list {
     impl<T> Node<T> {
         pub fn new(element: T) -> Self {
             Self {
-                next: None,
+                next: ptr::null_mut(),
                 element,
             }
         }
@@ -25,7 +26,7 @@ mod list {
     impl<T> List<T> {
         pub fn new() -> Self {
             Self {
-                head: None,
+                head: ptr::null_mut(),
                 tail: ptr::null_mut(),
             }
         }
@@ -38,34 +39,41 @@ mod list {
         // Super. Pedantic. But technically correct.
 
         pub fn push(&mut self, element: T) {
-            let mut new_tail = Box::new(Node::new(element));
-            let raw_tail: *mut _ = &mut *new_tail;
+            let raw_tail = Box::into_raw(Box::new(Node::new(element)));
             if !self.tail.is_null() {
                 // Hello Compiler, I Know I Am Doing Something Dangerous And
                 // I Promise To Be A Good Programmer Who Never Makes Mistakes.
                 //
-                // Safety:
+                // Safety: ???
                 unsafe {
-                    (*self.tail).next = Some(new_tail);
+                    (*self.tail).next = raw_tail;
                 }
             } else {
-                self.head = Some(new_tail);
+                self.head = raw_tail;
             }
 
             self.tail = raw_tail;
         }
 
         pub fn pop(&mut self) -> Option<T> {
-            self.head.take().map(|head| {
-                let head = *head;
+            if self.head.is_null() {
+                None
+            } else {
+                let head = unsafe { Box::from_raw(self.head) };
                 self.head = head.next;
 
-                if self.head.is_none() {
+                if self.head.is_null() {
                     self.tail = ptr::null_mut();
                 }
 
-                head.element
-            })
+                Some(head.element)
+            }
+        }
+    }
+
+    impl<T> Drop for List<T> {
+        fn drop(&mut self) {
+            while let Some(_) = self.pop() {}
         }
     }
 }
