@@ -138,6 +138,51 @@ mod list {
                 .map(|node| RefMut::map(node.borrow_mut(), |node| &mut node.element))
         }
     }
+
+    pub struct IntoIter<T>(List<T>);
+
+    impl<T> List<T> {
+        pub fn into_iter(self) -> IntoIter<T> {
+            IntoIter(self)
+        }
+    }
+
+    impl<T> Iterator for IntoIter<T> {
+        type Item = T;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            self.0.pop_front()
+        }
+    }
+
+    impl<T> DoubleEndedIterator for IntoIter<T> {
+        fn next_back(&mut self) -> Option<Self::Item> {
+            self.0.pop_back()
+        }
+    }
+
+    pub struct Iter<'a, T>(Option<Ref<'a, Node<T>>>);
+
+    impl<T> List<T> {
+        pub fn iter(&self) -> Iter<T> {
+            Iter(self.head.as_ref().map(|node| node.borrow()))
+        }
+    }
+
+    /*
+    impl<'a, T> Iterator for Iter<'a, T> {
+        type Item = Ref<'a, T>;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            self.0.take().map(|node_ref| {
+                let (next, element) = Ref::map_split(node_ref, |node| (&node.next, &node.element));
+
+                self.0 = next.as_ref().map(|head| head.borrow());
+                element
+            })
+        }
+    }
+    */
 }
 
 #[cfg(test)]
@@ -187,5 +232,20 @@ mod test {
         assert!(list.peek_front().is_none());
         list.push_front(1);
         assert_eq!(&*list.peek_front().unwrap(), &1);
+    }
+
+    #[test]
+    fn into_iter() {
+        let mut list = List::new();
+        list.push_front(1);
+        list.push_front(2);
+        list.push_front(3);
+
+        let mut iter = list.into_iter();
+        assert_eq!(iter.next(), Some(3));
+        assert_eq!(iter.next_back(), Some(1));
+        assert_eq!(iter.next(), Some(2));
+        assert_eq!(iter.next_back(), None);
+        assert_eq!(iter.next(), None);
     }
 }
