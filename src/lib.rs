@@ -399,6 +399,99 @@ mod list {
             }
         }
     }
+
+    // Markers
+    unsafe impl<T: Send> Send for List<T> {}
+    unsafe impl<T: Sync> Sync for List<T> {}
+
+    unsafe impl<'a, T: Send> Send for Iter<'a, T> {}
+    unsafe impl<'a, T: Sync> Sync for Iter<'a, T> {}
+
+    unsafe impl<'a, T: Send> Send for IterMut<'a, T> {}
+    unsafe impl<'a, T: Sync> Sync for IterMut<'a, T> {}
+
+    // Cursors
+    pub struct CursorMut<'a, T> {
+        curr: Link<T>,
+        list: &'a mut List<T>,
+        index: Option<usize>,
+    }
+
+    impl<T> List<T> {
+        pub fn cursor_mut(&mut self) -> CursorMut<T> {
+            CursorMut {
+                curr: None,
+                list: self,
+                index: None,
+            }
+        }
+    }
+
+    impl<'a, T> CursorMut<'a, T> {
+        pub fn index(&self) -> Option<usize> {
+            self.index
+        }
+
+        pub fn move_next(&mut self) {
+            if let Some(curr) = self.curr {
+                unsafe {
+                    self.curr = (*curr.as_ptr()).back;
+                    if self.curr.is_some() {
+                        *self.index.as_mut().unwrap() += 1;
+                    } else {
+                        self.index = None
+                    }
+                }
+            } else if !self.list.is_empty() {
+                self.curr = self.list.front;
+                self.index = Some(0);
+            } else {
+                // At ghost - the only element.
+                // Skip.
+            }
+        }
+
+        pub fn move_prev(&mut self) {
+            if let Some(curr) = self.curr {
+                unsafe {
+                    // We're on a real element, go to its previous (front)
+                    self.curr = (*curr.as_ptr()).front;
+                    if self.curr.is_some() {
+                        *self.index.as_mut().unwrap() -= 1;
+                    } else {
+                        // We just walked to the ghost, no more index
+                        self.index = None;
+                    }
+                }
+            } else if !self.list.is_empty() {
+                self.curr = self.list.back;
+                self.index = Some(self.list.len - 1)
+            } else {
+                // At ghost - the only element.
+                // Skip.
+            }
+        }
+
+        pub fn current(&mut self) -> Option<&mut T> {
+            unsafe { self.curr.map(|node| &mut (*node.as_ptr()).element) }
+        }
+
+        pub fn peek_next(&mut self) -> Option<&mut T> {
+            unsafe {
+                self.curr
+                    .and_then(|node| (*node.as_ptr()).back)
+                    .map(|node| &mut (*node.as_ptr()).element)
+            }
+        }
+
+        pub fn peek_prev(&mut self) -> Option<&mut T> {
+            unsafe {
+                self.curr
+                    .and_then(|node| (*node.as_ptr()).front)
+                    .map(|node| &mut (*node.as_ptr()).element)
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -671,5 +764,36 @@ mod tests {
         assert_eq!(map.remove(&list2), Some("list2"));
 
         assert!(map.is_empty());
+    }
+
+    #[test]
+    #[allow(dead_code)]
+    fn markers() {
+        use crate::list::*;
+
+        fn is_send<T: Send>() {}
+        fn is_sync<T: Sync>() {}
+
+        is_send::<List<i32>>();
+        is_sync::<List<i32>>();
+
+        is_send::<IntoIter<i32>>();
+        is_sync::<IntoIter<i32>>();
+
+        is_send::<Iter<i32>>();
+        is_sync::<Iter<i32>>();
+
+        is_send::<IterMut<i32>>();
+        is_sync::<IterMut<i32>>();
+
+        fn linked_list_covariant<'a, T>(x: List<&'static T>) -> List<&'a T> {
+            x
+        }
+        fn iter_covariant<'i, 'a, T>(x: Iter<'i, &'static T>) -> Iter<'i, &'a T> {
+            x
+        }
+        fn into_iter_covariant<'a, T>(x: IntoIter<&'static T>) -> IntoIter<&'a T> {
+            x
+        }
     }
 }
